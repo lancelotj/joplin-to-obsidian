@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+from urllib.parse import unquote
 from utils import print_status, print_error
 
 def move_resources(root_dir):
@@ -26,24 +27,24 @@ def move_resources(root_dir):
                 # Match both image links ![...](.../_resources/...) and regular links [...](.../_resources/...)
                 for match in re.finditer(r'!?\[[^\]]*\]\((?:\.\./)*_resources/([^)]+)\)', content):
                     resource = match.group(1)
-                    src = os.path.join(resources_dir, resource)
+                    src = os.path.join(resources_dir, unquote(resource))
                     all_matches.append((match, resource, 'markdown'))
                     
                     if os.path.exists(src) and resource not in resources_to_move:
                         resources_to_move[resource] = src
-                        print_status(f"Found resource: {resource}")
+                        print_status(f"Found resource: {unquote(resource)}")
                     elif not os.path.exists(src) and resource not in resources_to_move:
                         print_error(f"Resource not found: {src}")
 
                 # Also match HTML img tags with src=".../_resources/..."
                 for match in re.finditer(r'<img[^>]+src="(?:\.\./)*_resources/([^"]+)"[^>]*>', content):
                     resource = match.group(1)
-                    src = os.path.join(resources_dir, resource)
+                    src = os.path.join(resources_dir, unquote(resource))
                     all_matches.append((match, resource, 'html'))
                     
                     if os.path.exists(src) and resource not in resources_to_move:
                         resources_to_move[resource] = src
-                        print_status(f"Found resource: {resource}")
+                        print_status(f"Found resource: {unquote(resource)}")
                     elif not os.path.exists(src) and resource not in resources_to_move:
                         print_error(f"Resource not found: {src}")
 
@@ -55,7 +56,7 @@ def move_resources(root_dir):
 
                     # Move unique resources first
                     for resource, src in resources_to_move.items():
-                        dst = os.path.join(local_resources_dir, resource)
+                        dst = os.path.join(local_resources_dir, unquote(resource))
                         print_status(f"Moving: {resource}")
 
                         try:
@@ -69,21 +70,22 @@ def move_resources(root_dir):
                         if resource in resources_to_move:  # Only update links for successfully found resources
                             original_link = match.group(0)
                             
+                            decoded = unquote(resource)
                             if link_type == 'html':
                                 # It's an HTML img tag, replace the src attribute
-                                new_link = re.sub(r'src="(?:\.\./)*_resources/[^"]*"', f'src="./_resources/{resource}"', original_link)
+                                new_link = re.sub(r'src="(?:\.\./)*_resources/[^"]*"', f'src="./_resources/{decoded}"', original_link)
                             elif original_link.startswith('!['):
                                 # It's a markdown image link
-                                new_link = f'![](./_resources/{resource})'
+                                new_link = f'![](./_resources/{decoded})'
                             else:
                                 # It's a regular markdown link, extract the link text
                                 link_text_match = re.match(r'\[([^\]]*)\]', original_link)
                                 if link_text_match:
                                     link_text = link_text_match.group(1)
-                                    new_link = f'[{link_text}](./_resources/{resource})'
+                                    new_link = f'[{link_text}](./_resources/{decoded})'
                                 else:
                                     # Fallback if we can't extract link text
-                                    new_link = f'[](./_resources/{resource})'
+                                    new_link = f'[](./_resources/{decoded})'
                             
                             content = content.replace(original_link, new_link)
                             print_status(f"Updated {link_type} link for {resource} in {file}")
